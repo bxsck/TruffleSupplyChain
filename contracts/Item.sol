@@ -1,27 +1,30 @@
 pragma solidity ^0.6.0;
 
-import './ItemManager.sol';
+import "./ItemManager.sol";
 
-contract Item{
+contract Item {
     uint public priceInWei;
+    uint public paidWei;
     uint public index;
-    uint public pricePaid;
-    
+
     ItemManager parentContract;
-    
-    constructor(ItemManager _parentContract, uint _priceInWei, uint _index) public{
+
+    constructor(ItemManager _parentContract, uint _priceInWei, uint _index) public {
         priceInWei = _priceInWei;
-        index =_index;
+        index = _index;
         parentContract = _parentContract;
     }
-    
-    receive() external payable{
-        require(pricePaid == 0, "Item is paid already");
-        require(priceInWei == msg.value, "Only full payments allowed");
-        pricePaid += msg.value;
+
+    receive() external payable {
+        require(msg.value == priceInWei, "We don't support partial payments");
+        require(paidWei == 0, "Item is already paid!");
+        paidWei += msg.value;
         (bool success, ) = address(parentContract).call.value(msg.value)(abi.encodeWithSignature("triggerPayment(uint256)",index));
-        require(success, "The transaction wasn't successful, canceling");
+        require(success, "Delivery did not work");
     }
-    
-    fallback() external {}
+
+    fallback () external {
+
+    }
+
 }
