@@ -17,21 +17,22 @@ class App extends Component {
       this.accounts = await this.web3.eth.getAccounts();
 
       // Get the contract instance.
-      this.networkId = await this.web3.eth.net.getId();
+      const networkId = await this.web3.eth.net.getId();
 
-      this.itemManager = new web3.eth.Contract(
+      this.itemManager = new this.web3.eth.Contract(
         ItemManagerContract.abi,
         ItemManagerContract.networks[networkId] && ItemManagerContract.networks[networkId].address,
       );
 
-      this.item = new web3.eth.Contract(
+      this.item = new this.web3.eth.Contract(
         ItemContract.abi,
         ItemContract.networks[networkId] && ItemContract.networks[networkId].address,
       );
 
+      this.listenToPaymentEvent();
       // Set web3, accounts, and contract to the state, and then proceed with an
       // example of interacting with the contract's methods.
-      this.setState({ loaded:true }, this.runExample);
+      this.setState({ loaded:true });
     } catch (error) {
       // Catch any errors for any of the above operations.
       alert(
@@ -39,22 +40,38 @@ class App extends Component {
       );
       console.error(error);
     }
+    
   };
+
+  listenToPaymentEvent = () => {
+    console.log('[bosck')
+    let self = this;
+    this.itemManager.events.SupplyChainStep().on("data", async function(evt) {
+      if(evt.returnValues._step == 1) {
+        let item = await self.itemManager.methods.items(evt.returnValues._itemIndex).call();
+        console.log(item);
+        alert("Item " + item._identifier + " was paid, deliver it now!");
+      };
+      console.log(evt);
+    });
+  }
 
   handleInputChange = event => {
     const target = event.target;
-    const value = target.type == 'checkbox' ? target.checked : target.value;
+    const value = target.type === 'checkbox' ? target.checked : target.value;
     const name = target.name;
     this.setState({
       [name]:value
     });
   }
 
-  handleSubmit = async() => {
-    const {cost, itemName} = this.state;
-    await this.itemManager.methods.createItem(itemName, cost).send({form: this.accounts[0]};)
-  }
-
+  handleSubmit = async () => {
+    const { cost, itemName } = this.state;
+    console.log(itemName, cost, this.itemManager);
+    let result = await this.itemManager.methods.createItem(itemName, cost).send({ from: this.accounts[0] });
+    console.log(result);
+    alert("Send "+cost+" Wei to "+result.events.SupplyChainStep.returnValues._address);
+  };
   render() {
     if (!this.state.loaded) {
       return <div>Loading Web3, accounts, and contract...</div>;
@@ -64,8 +81,8 @@ class App extends Component {
         <h1>Event Trigger / Supply Chain</h1>
         <h2>Items</h2>
         <h2>Add Items</h2>
-        Cost in Wei: <input type='text' name='cost' value={this.state.cost} onChange={} />
-       Item Identifier: <input type='text' name='itemName' value={this.state.itemName} onChange={} />
+        Cost in Wei: <input type='text' name='cost' value={this.state.cost} onChange={this.handleInputChange} />
+       Item Identifier: <input type='text' name='itemName' value={this.state.itemName} onChange={this.handleInputChange} />
        <button type='button' onClick={this.handleSubmit}>Create new Item</button>
       </div>
     );
